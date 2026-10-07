@@ -1,0 +1,41 @@
+import { NextResponse } from "next/server";
+import { PrismaClient } from "@prisma/client";
+import { getServerSession } from "next-auth";
+import { authOptions } from "../auth/[...nextauth]/route";
+
+const prisma = new PrismaClient();
+
+export async function GET() {
+  try {
+    const gigs = await prisma.gig.findMany({
+      orderBy: { createdAt: "desc" }
+    });
+    return NextResponse.json(gigs);
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to fetch gigs" }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const session = await getServerSession(authOptions) as any;
+    const body = await req.json();
+    
+    // In production, enforce auth
+    const postedBy = session?.user?.studentId || "Guest";
+
+    const gig = await prisma.gig.create({
+      data: {
+        type: body.type,
+        title: body.title,
+        details: body.details,
+        postedBy: body.postedBy || postedBy, // Allow override for demo
+        status: "OPEN"
+      }
+    });
+
+    return NextResponse.json(gig);
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to create gig" }, { status: 500 });
+  }
+}
